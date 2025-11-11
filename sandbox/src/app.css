@@ -1,0 +1,22 @@
+/*
+| Role                   | Color     | Hex                                    | Notes |
+| ---------------------- | --------- | -------------------------------------- | ----- |
+| **Background**         | `#1E1E24` | Deep charcoal with a hint of violet    |       |
+| **Surface / Panels**   | `#2A2A32` | Slightly lighter for contrast          |       |
+| **Primary Accent**     | `#7A8CFF` | Muted indigo-blue, soft but noticeable |       |
+| **Secondary Accent**   | `#FFB3C6` | Pastel rose, gentle warmth             |       |
+| **Tertiary Accent**    | `#A2E3C4` | Soft mint-green for freshness          |       |
+| **Highlight / Active** | `#FFD97D` | Muted honey-yellow for selections      |       |
+| **Text Primary**       | `#E8E8F2` | Off-white with a violet tint           |       |
+| **Text Secondary**     | `#A5A5B5` | Muted grayish lavender                 |       |
+| **Lines / Borders**    | `#3A3A45` | Subtle border tone                     |       |
+*/
+
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: #1E1E24;
+}
