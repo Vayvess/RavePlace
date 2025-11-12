@@ -47,69 +47,73 @@ export class Editor {
             }
         };
 
+        const pathStyle = {
+            selector: '.highlighted',
+            style: {
+                'background-color': '#00cc44',
+                'line-color': '#00cc44',
+                'target-arrow-color': '#00cc44',
+            }
+        }
+
         return cytoscape({
             container: this.container,
-            elements: [],
+            elements: [
+                {
+                    data: { id: 'root', label: 'root', text: '' },
+                    position: { x: 0, y: 0 },
+                    locked: true
+                }
+            ],
             style: [
                 baseNodeStyle,
                 labelStyle,
-                edgeStyle
+                edgeStyle,
+                pathStyle
             ]
         });
     }
 
-    _evaluate(event) {
-        const cy = this.cy;
+    _highlightPath(path) {
+        // Reset all nodes and edges to normal
+        this.cy.elements().removeClass('highlighted');
+
+        // Add class to all path elements
+        path.forEach((id, i) => {
+            const node = this.cy.getElementById(id);
+            node.addClass('highlighted');
+
+            // highlight the edge between this and the next node
+            if (i < path.length - 1) {
+                const next = path[i + 1];
+                const edge = this.cy.edges(`[source = "${id}"][target = "${next}"]`);
+                edge.addClass('highlighted');
+            }
+        });
+    }
+
+    _build() {
+        const path = [];
+        const codeParts = [];
         const visited = new Set();
-        const paths = [];
+        let current = this.cy.elements().nodes().getElementById('root');
 
-        // Helper: pick random outgoing edge
-        const getRandomOutgoingEdge = (node) => {
-            const outgoing = node.outgoers("edge[target]");
-            if (outgoing.length === 0) return null;
-            return outgoing[Math.floor(Math.random() * outgoing.length)];
-        };
+        while (current && !visited.has(current.id())) {
+            visited.add(current.id());
+            codeParts.push(current.data("text"));
+            path.push(current.id());
 
-        // Helper: traverse component starting from this node
-        const traverse = (node) => {
-            let current = node;
-            const codeParts = [];
+            const outgoers = current.outgoers("edge[target]");
+            if (outgoers.length === 0) break;
 
-            while (current && !visited.has(current.id())) {
-                visited.add(current.id());
-                codeParts.push(current.data("text") || "");
-
-                const edge = getRandomOutgoingEdge(current);
-                if (!edge) break;
-
-                const target = edge.target();
-                current = target;
-            }
-
-            return codeParts.join("");
-        };
-
-        // Find all connected components
-        const components = cy.elements().components();
-
-        for (const comp of components) {
-            const startNodes = comp.nodes().filter((n) => n.indegree() === 0);
-
-            if (startNodes.length === 0) {
-                // No clear start — just pick a random node
-                const randomNode = comp.nodes()[Math.floor(Math.random() * comp.nodes().length)];
-                paths.push(traverse(randomNode));
-            } else {
-                for (const start of startNodes) {
-                    paths.push(traverse(start));
-                }
-            }
+            const edge = outgoers[Math.floor(Math.random() * outgoers.length)];
+            current = edge.target();
         }
 
-        // Build final code
-        const finalCode = paths.join("\n\n");
-        console.log("Generated Strudel Code:\n", finalCode);
-        strudel.evaluate(finalCode);
+        const builded = codeParts.join("");
+        console.log("Generated Strudel Code:\n", builded);
+        this._highlightPath(path);
+        strudel.evaluate(builded);
     }
 
     _setupContextMenu() {
@@ -167,7 +171,9 @@ export class Editor {
             content: "Remove",
             selector: "node, edge",
             onClickFunction: (event) => {
-                event.target.remove();
+                const element = event.target;
+                if (element.id() === 'root') return;
+                element.remove();
             }
         };
 
@@ -177,7 +183,7 @@ export class Editor {
             selector: "",
             coreAsWell: true,
             onClickFunction: (event) => {
-                this._evaluate(event);
+                this._build();
             }
         };
 
@@ -187,8 +193,12 @@ export class Editor {
             selector: "",
             coreAsWell: true,
             onClickFunction: (event) => {
-                const json = cy.json();
-                const blob = new Blob([JSON.stringify(json.elements, null, 2)], { type: "application/json" });
+                const data = {
+                    elements: cy.json().elements,
+                    nextId: nextIdRef.value,
+                };
+
+                const blob = new Blob([JSON.stringify(data, null, 4)], { type: "application/json" });
                 const a = document.createElement("a");
                 a.href = URL.createObjectURL(blob);
                 a.download = "graph.json";
@@ -214,9 +224,11 @@ export class Editor {
                     reader.onload = (evt) => {
                         try {
                             const data = JSON.parse(evt.target.result);
-                            cy.elements().remove(); // clear existing
-                            cy.add(data); // add saved nodes & edges
-                            cy.layout({ name: "preset" }).run(); // optional
+                            cy.elements().remove();
+                            cy.add(data.elements);
+                            this.cy.elements().removeClass('highlighted');
+                            nextIdRef.value = data.nextId;
+                            cy.layout({ name: "preset" }).run();
                         } catch (err) {
                             alert("Invalid JSON file.");
                             console.error(err);
@@ -229,11 +241,10 @@ export class Editor {
             }
         };
 
-
         return cy.contextMenus({
             evtType: "cxttap",
             menuItems: [
-                addNode, 
+                addNode,
                 editNode,
                 addEdge,
                 remove,
@@ -243,7 +254,7 @@ export class Editor {
             ],
         });
     }
-    
+
     _setupTooltip() {
         const tooltip = document.createElement("div");
         tooltip.className = "cy-tooltip";
